@@ -60,9 +60,10 @@ function hc(m){m=Math.round(m);return Math.floor(m/60)+":"+p2(m%60)}
 function fh(m){return(Math.round(m/6)/10)+"h"}
 function hm(m){m=Math.round(m)%1440;var h=Math.floor(m/60);return((h%12)||12)+":"+p2(m%60)+(h<12?" am":" pm")}
 function last(){return(TS==k(TD)||D[k(TD)])?TD:add(TD,-1)}
-function fit(){var s=$("s"),W=innerWidth,H=innerHeight,MW=660,i,w,h,z;s.style.transform="none";var PW=400;document.body.classList.toggle("ph",W<560);if(W<560){s.style.width=PW+"px";h=s.offsetHeight;z=Math.min(W/PW,H/h);s.style.transform="scale("+z+")";s.style.left=Math.max(0,(W-PW*z)/2)+"px";s.style.top="0";s.style.visibility="visible";return}
+function fit(){var s=$("s"),W=innerWidth,H=innerHeight,MW=660,i,w,h,z;s.style.transform="none";var PW=400;document.body.classList.toggle("ph",W<560);if(W<560){s.style.width=PW+"px";h=s.offsetHeight;z=Math.max(Math.min(W/PW,H/h),Math.min(W/PW,.8));var ps=h*z>H;document.documentElement.style.overflowY=document.body.style.overflowY=ps?"auto":"hidden";document.body.style.minHeight=ps?(h*z+8)+"px":"";s.style.transform="scale("+z+")";s.style.left=Math.max(0,(W-PW*z)/2)+"px";s.style.top="0";s.style.visibility="visible";return}
 z=1;for(i=0;i<5;i++){w=Math.max(MW,W/z);s.style.width=w+"px";h=s.offsetHeight;z=Math.min(1.25,H/h,W/w)}w=Math.max(MW,W/z);s.style.width=w+"px";h=s.offsetHeight;z=Math.min(1.25,H/h,W/w);
-s.style.transform="scale("+z+")";s.style.left=Math.max(0,(W-w*z)/2)+"px";s.style.top=Math.max(0,(H-h*z)/2)+"px";s.style.visibility="visible"}
+var sc=0;if(z<.86){z=Math.min(.86,W/MW);w=Math.max(MW,W/z);s.style.width=w+"px";h=s.offsetHeight;sc=h*z>H}document.documentElement.style.overflowY=document.body.style.overflowY=sc?"auto":"hidden";document.body.style.minHeight=sc?(h*z+8)+"px":"";
+s.style.transform="scale("+z+")";s.style.left=Math.max(0,(W-w*z)/2)+"px";s.style.top=sc?"0":Math.max(0,(H-h*z)/2)+"px";s.style.visibility="visible"}
 function redraw(){draw();fit()}
 var tip;function show(e){var t=e.target.getAttribute&&e.target.getAttribute("data-t");if(!t){tip.style.opacity=0;return}tip.textContent=t;tip.style.opacity=1;var x=e.clientX+12,y=e.clientY+12,r=tip.getBoundingClientRect();if(x+r.width>innerWidth-6)x=e.clientX-r.width-12;if(y+r.height>innerHeight-6)y=e.clientY-r.height-12;tip.style.left=x+"px";tip.style.top=y+"px"}
 document.addEventListener("mousemove",show);document.addEventListener("mouseleave",function(){tip.style.opacity=0});addEventListener("resize",fit);
