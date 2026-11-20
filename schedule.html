@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly Schedule</title>
+<style>
+  :root { --bg:#ffffff; --ink:#1f1e1b; --muted:#787774; --faint:#b4b3b0; --line:#e3e2df; --half:#efeeec; --frame:#d6d5d2; --today:#f4f4f2; --hover:#f5f5f3; --sel:rgba(55,53,47,.12);
+          --accent:#37352f; --pop:#ffffff; --pop-edge:#e3e2e0; --shadow:0 10px 30px rgba(15,15,15,.14); --tb:15%; --ti:58%; }
+  @media all {
+    :root { --bg:#191919; --ink:#f1f1f0; --muted:#9a9a97; --faint:#5e5e5b; --line:#2e2e2e; --half:#242424; --frame:#3a3a3a; --today:#202020; --hover:#1f1f1f; --sel:rgba(255,255,255,.14); --accent:#f1f1f0;
+            --pop:#232323; --pop-edge:#383838; --shadow:0 10px 30px rgba(0,0,0,.55); --tb:24%; --ti:30%; }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { background:var(--bg); color:var(--ink); overflow:hidden; -webkit-font-smoothing:antialiased; user-select:none; -webkit-user-select:none;
+         font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif; font-variant-numeric:tabular-nums; }
+  .app { height:100%; display:flex; flex-direction:column; padding:clamp(6px,1.2vw,14px) clamp(6px,1.2vw,14px) 6px; }
+  .scroller { flex:1; min-height:0; overflow:hidden; }
+  .grid { display:grid; height:100%; grid-template-columns:clamp(50px,6.5vw,72px) repeat(7, 1fr);
+          grid-template-rows:auto repeat(32, minmax(0, 1fr)); position:relative; border:1px solid var(--frame); border-radius:6px; overflow:hidden; }
+
+  /* header */
+  .hd { background:var(--bg); text-align:center; padding:clamp(6px,1.1vh,10px) 2px; border-bottom:1px solid var(--frame); border-left:1px solid var(--line);
+        display:flex; align-items:center; justify-content:center; gap:6px; }
+  .hd:first-child { border-left:0; }
+  .hd .n { font-size:clamp(10.5px,1.1vw,12.5px); font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+  .hd.today { box-shadow:inset 0 -2px 0 var(--accent); }
+  .hd.today .n { color:var(--accent); }
+  
+  /* time column */
+  .tl { position:relative; border-right:1px solid var(--frame); }
+  .tl span { position:absolute; right:clamp(6px,1vw,12px); top:0; transform:translateY(-50%); white-space:nowrap; line-height:1; }
+  .tl.hr span { font-size:clamp(9.5px,1vw,11.5px); color:var(--muted); font-weight:600; }
+  .tl.hf span { font-size:clamp(8.5px,.85vw,10px); color:var(--faint); font-weight:500; }
+  .grid.compact .tl.hf span { display:none; }
+
+  /* slots */
+  .slot { border-left:1px solid var(--line); }
+  .slot.d0 { border-left:0; }
+  .slot.hr { border-top:1px solid var(--line); }
+  .slot.hf { border-top:1px solid var(--half); }
+  .slot.r0 { border-top:0; }
+  .slot.today { background:var(--today); }
+  .slot:hover, .slot.today:hover { background:var(--hover); }
+  .slot.sel { background:var(--sel) !important; }
+
+  /* blocks */
+  .ev { z-index:2; margin:1px 2px; border-radius:3px; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center;
+        text-align:center; overflow:hidden; padding:2px 6px 2px 9px; cursor:default; min-height:0; }
+  .ev { background:color-mix(in srgb, var(--c) var(--tb), var(--bg)); color:color-mix(in srgb, var(--c) var(--ti), var(--ink)); }
+  .ev::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--c); }
+  .ev .t { font-weight:700; font-size:clamp(12px,1.4vw,16px); line-height:1.15; letter-spacing:-0.01em; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+  .ev .w { font-size:clamp(9.5px,.95vw,11.5px); opacity:.75; margin-top:3px; white-space:nowrap; font-weight:600; letter-spacing:.01em; }
+  .ev.s1 .w, .grid.compact .ev.s2 .w { display:none; }
+  .ev.s1 .t, .grid.compact .ev.s2 .t { font-size:clamp(10.5px,1.05vw,13px); white-space:nowrap; line-height:1; }
+  .ev.s1, .grid.compact .ev.s2 { padding-top:0; padding-bottom:0; }
+  .grid.tight .ev .w { display:none; }
+  .grid.tight .ev .t { white-space:nowrap; }
+  .ev:hover { outline:1.5px solid var(--c); outline-offset:-1.5px; }
+
+  /* now line */
+  .ov { position:relative; pointer-events:none; z-index:4; }
+  .now { position:absolute; left:0; right:0; height:2px; margin-top:-1px; background:var(--accent); }
+  .now::before { content:""; position:absolute; left:-1px; top:-3px; width:2px; height:8px; background:var(--accent); }
+  .nowpill { position:absolute; right:clamp(3px,.6vw,8px); transform:translateY(-50%); background:var(--accent); color:var(--bg); font-size:clamp(9.5px,.95vw,11px);
+             font-weight:700; padding:2px 5px; border-radius:3px; white-space:nowrap; z-index:5; line-height:1.2; }
+
+  .tabs { display:flex; gap:3px; width:100%; padding:0 2px; }
+  .tabs button { flex:1; font:inherit; font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:6px 0; border-radius:5px; border:0; background:transparent; color:var(--muted); cursor:pointer; }
+  .tabs button.td { color:var(--ink); box-shadow:inset 0 -2px 0 var(--accent); border-radius:0; }
+  .tabs button.on { background:var(--accent); color:var(--bg); box-shadow:none; border-radius:5px; }
+  .grid.one .ev .t { font-size:13px; }
+  .grid.one .ev .w { font-size:10.5px; }
+  @media (max-width:559px) { #hint { display:none; } .foot { justify-content:flex-end; } }
+  .foot { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 2px 0; font-size:10.5px; color:var(--faint); }
+  .foot button { background:none; border:0; color:var(--muted); font:inherit; cursor:pointer; }
+  .foot button:hover { color:var(--ink); }
+  .warn { color:var(--accent); }
+
+  /* editor */
+  .pop { position:fixed; z-index:20; width:min(300px, 92vw); background:var(--pop); border:1px solid var(--pop-edge); border-radius:8px;
+         box-shadow:var(--shadow); padding:16px; display:flex; flex-direction:column; gap:10px; user-select:text; -webkit-user-select:text; }
+  .pop label { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .pop input[type=text], .pop select, .pop textarea { width:100%; font:inherit; font-size:14px; color:var(--ink); background:var(--bg);
+         border:1px solid var(--pop-edge); border-radius:5px; padding:8px 10px; outline:none; }
+  .pop input[type=text]:focus, .pop select:focus, .pop textarea:focus { border-color:var(--accent); }
+  .pop textarea { height:120px; font-size:11px; font-family:ui-monospace, Menlo, monospace; resize:none; }
+  .row { display:flex; gap:8px; align-items:center; } .row select { flex:1; }
+  .sw { display:grid; grid-template-columns:repeat(8, 22px); gap:8px; }
+  .sw button { width:22px; height:22px; border-radius:4px; border:2px solid var(--pop); outline:2px solid transparent; cursor:pointer; }
+  .sw button.on, .sw label.on { outline-color:var(--ink); }
+  .sw label.custom { width:22px; height:22px; border-radius:4px; border:2px solid var(--pop); outline:2px solid transparent; cursor:pointer; position:relative;
+                     background:conic-gradient(#e5484d,#e5a00d,#3a945c,#12a594,#3f83cc,#8456bf,#c94f81,#e5484d); letter-spacing:0; }
+  .sw label.custom input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .days { display:flex; gap:4px; }
+  .days button { flex:1; padding:6px 0; border-radius:4px; border:1px solid var(--pop-edge); background:var(--bg); color:var(--muted); font:inherit; font-size:12px; cursor:pointer; }
+  .days button.on { background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600; }
+  .acts { display:flex; gap:8px; justify-content:flex-end; margin-top:4px; }
+  .acts button { font:inherit; font-size:13px; padding:7px 13px; border-radius:5px; border:1px solid var(--pop-edge); background:var(--bg); color:var(--ink); cursor:pointer; }
+  .acts .primary { background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600; }
+  .acts .danger { margin-right:auto; color:#d44c47; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="scroller" id="scroller"><div class="grid" id="grid"></div></div>
+  <div class="foot"><span id="hint">Edit your week in the Weekly Schedule page · updates at 4:47 pm and 9:47 pm</span><span id="upd"></span></div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const START = 6, ROWS = 32;                       // 6:00 am → 10:00 pm in 30-min slots
+  const PALETTE = { red:'#e5484d', orange:'#e8832b', amber:'#e5a00d', lime:'#7cad3a', green:'#3a945c', teal:'#12a594', sky:'#2f9fd9',
+                    blue:'#3f83cc', indigo:'#5b5bd6', purple:'#8456bf', pink:'#c94f81', brown:'#9a6b47', gray:'#8f8d88', slate:'#5f6b7a' };
+  const COLOURS = Object.keys(PALETTE);
+  const hexOf = c => PALETTE[c] || (/^#[0-9a-f]{6}$/i.test(c || '') ? c : PALETTE.blue);
+  const KEY = 'compendium-schedule-v1';
+  const SEED = Array.isArray(window.SCHED) ? window.SCHED : [];
+
+  const hm = i => { const m = START * 60 + i * 30; return [Math.floor(m / 60), m % 60]; };
+  const slotLabel = i => { let [h, mm] = hm(i); const ap = h >= 12 && h < 24 ? 'pm' : 'am'; h = h % 12 || 12; return h + ':' + String(mm).padStart(2,'0') + ' ' + ap; };
+  const short = i => slotLabel(i).replace(':00', '');
+  const hourLab = i => { const [h] = hm(i); return (h % 12 || 12) + ' ' + (h >= 12 ? 'pm' : 'am'); };
+  const halfLab = i => { const [h] = hm(i); return (h % 12 || 12) + ':30'; };
+
+  // ── data comes from the Weekly Schedule page in Notion (synced at 4:47 pm and 9:47 pm) ──
+  let events = SEED.slice();
+  const save = () => {};
+  const nextId = () => events.reduce((m, e) => Math.max(m, e.id || 0), 0) + 1;
+
+  const grid = document.getElementById('grid'), scroller = document.getElementById('scroller');
+  const mk = (cls, txt) => { const d = document.createElement('div'); d.className = cls; if (txt != null) d.textContent = txt; return d; };
+  let todayIdx, overlays = [], slots = [], timeOv, sel = null, wasN = null;
+  const narrow = () => window.innerWidth < 560;
+
+  function render() {
+    grid.innerHTML = ''; overlays = []; slots = [];
+    todayIdx = (new Date().getDay() + 6) % 7;
+    const N = narrow(); wasN = N; if (sel === null) sel = todayIdx;
+    const shown = N ? [sel] : [0,1,2,3,4,5,6], col = d => N ? 2 : d + 2;
+    grid.classList.toggle('one', N);
+    grid.style.gridTemplateColumns = N ? '48px 1fr' : '';
+
+    const c = mk('hd'); c.style.gridColumn = 1; c.style.gridRow = 1; grid.appendChild(c);
+    if (N) {
+      const h = mk('hd'); h.style.gridColumn = 2; h.style.gridRow = 1; const tb = mk('tabs');
+      DAYS.forEach((d, i) => { const b = document.createElement('button'); b.textContent = d; b.title = FULL[i];
+        b.className = (i === sel ? 'on' : '') + (i === todayIdx ? ' td' : '');
+        b.addEventListener('pointerdown', ev => ev.stopPropagation());
+        b.onclick = () => { sel = i; render(); fit(); drawNow(); }; tb.appendChild(b); });
+      h.appendChild(tb); grid.appendChild(h);
+    } else DAYS.forEach((d, i) => {
+      const h = mk('hd' + (i === todayIdx ? ' today' : '')); h.title = FULL[i];
+      h.appendChild(mk('n', d));
+      h.style.gridColumn = i + 2; h.style.gridRow = 1; grid.appendChild(h);
+    });
+
+    for (let r = 0; r < ROWS; r++) {
+      const hr = r % 2 === 0;
+      const t = mk('tl ' + (hr ? 'hr' : 'hf')); t.style.gridColumn = 1; t.style.gridRow = r + 2;
+      if (r > 0) { const s = document.createElement('span'); s.textContent = hr ? hourLab(r) : halfLab(r); s.dataset.r = r; t.appendChild(s); }
+      grid.appendChild(t);
+      for (const d of shown) {
+        const s = mk('slot ' + (hr ? 'hr' : 'hf') + (d === todayIdx && !N ? ' today' : '') + (d === 0 || N ? ' d0' : '') + (r === 0 ? ' r0' : ''));
+        s.style.gridColumn = col(d); s.style.gridRow = r + 2; s.dataset.d = d; s.dataset.r = r;
+        grid.appendChild(s); (slots[d] = slots[d] || [])[r] = s;
+      }
+    }
+
+    events.forEach(e => {
+      const a = Math.max(0, e.start), b = Math.min(ROWS, e.end); if (b <= a || !shown.includes(e.day)) return;
+      const el = mk('ev' + (b - a === 1 ? ' s1' : b - a === 2 ? ' s2' : '')); el.style.setProperty('--c', hexOf(e.colour));
+      el.style.gridColumn = col(e.day); el.style.gridRow = (a + 2) + ' / ' + (b + 2);
+      el.appendChild(mk('t', e.title || 'Untitled'));
+      el.appendChild(mk('w', short(a) + ' – ' + short(b)));
+      el.title = (e.title || 'Untitled') + ' · ' + FULL[e.day] + ' ' + short(a) + ' – ' + short(b);
+      el.addEventListener('pointerdown', ev => ev.stopPropagation());
+      grid.appendChild(el);
+    });
+
+    for (const d of shown) {
+      const o = mk('ov'); o.style.gridColumn = col(d); o.style.gridRow = '2 / ' + (ROWS + 2); grid.appendChild(o); overlays[d] = o;
+    }
+    timeOv = mk('ov'); timeOv.style.gridColumn = 1; timeOv.style.gridRow = '2 / ' + (ROWS + 2); grid.appendChild(timeOv);
+    drawNow();
+  }
+
+  let nowEls = [];
+  function drawNow() {
+    nowEls.forEach(x => x.remove()); nowEls = [];
+    const d = new Date(), m = d.getHours() * 60 + d.getMinutes(), rel = m - START * 60;
+    const rowPx = (grid.clientHeight - grid.firstChild.offsetHeight) / ROWS;
+    grid.querySelectorAll('.tl span').forEach(s => { s.style.visibility = Math.abs(rel - s.dataset.r * 30) / 30 * rowPx < 15 ? 'hidden' : ''; });
+    if (rel < 0 || rel > ROWS * 30) return;
+    const top = (rel / (ROWS * 30) * 100) + '%';
+    if (!overlays[todayIdx]) return;
+    const line = mk('now'); line.style.top = top; overlays[todayIdx].appendChild(line);
+    const pill = mk('nowpill', (d.getHours() % 12 || 12) + ':' + String(d.getMinutes()).padStart(2, '0')); pill.style.top = top; timeOv.appendChild(pill);
+    nowEls = [line, pill];
+  }
+  function fit() {
+    const rowH = (grid.clientHeight - (grid.firstChild ? grid.firstChild.offsetHeight : 0)) / ROWS;
+    grid.classList.toggle('compact', rowH < 19);
+    grid.classList.toggle('tight', rowH < 15);
+  }
+
+  // ── drag to create ──
+  let drag = null;
+  grid.addEventListener('pointerdown', e => {
+    return;
+    e.preventDefault();
+    drag = { d: +s.dataset.d, a: +s.dataset.r, b: +s.dataset.r }; paint();
+  });
+  window.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY);
+    const s = t && t.closest && t.closest('.slot');
+    if (s && +s.dataset.d === drag.d) { drag.b = +s.dataset.r; paint(); }
+  });
+  window.addEventListener('pointerup', () => {
+    if (!drag) return;
+    const d = drag.d, a = Math.min(drag.a, drag.b), b = Math.max(drag.a, drag.b) + 1;
+    openEditor({ day:d, start:a, end:b, title:'', colour:'blue' }, slots[d][a], true);
+    drag = null;
+  });
+  function paint() {
+    slots.forEach(col => col.forEach(s => s.classList.remove('sel')));
+    if (!drag) return;
+    const a = Math.min(drag.a, drag.b), b = Math.max(drag.a, drag.b);
+    for (let r = a; r <= b; r++) slots[drag.d][r].classList.add('sel');
+  }
+
+  // ── editor ──
+  let pop = null;
+  function closePop() { if (pop) pop.remove(); pop = null; paint(); }
+  function place(p, anchor) {
+    document.body.appendChild(p);
+    const r = anchor.getBoundingClientRect(), pw = p.offsetWidth, ph = p.offsetHeight, W = innerWidth, H = innerHeight;
+    let x = r.right + 10; if (x + pw > W - 8) x = r.left - pw - 10; if (x < 8) x = Math.max(8, (W - pw) / 2);
+    let y = r.top; if (y + ph > H - 8) y = H - ph - 8; if (y < 8) y = 8;
+    p.style.left = x + 'px'; p.style.top = y + 'px';
+  }
+  function timeSelect(val, from, to) {
+    const s = document.createElement('select');
+    for (let i = from; i <= to; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i === ROWS ? '10:00 pm' : slotLabel(i); if (i === val) o.selected = true; s.appendChild(o); }
+    return s;
+  }
+  const label = t => { const l = document.createElement('label'); l.textContent = t; return l; };
+  function openEditor(ev, anchor, isNew) {
+    closePop();
+    if (isNew) { drag = null; for (let r = ev.start; r < ev.end; r++) slots[ev.day][r].classList.add('sel'); }
+    pop = mk('pop');
+    pop.addEventListener('pointerdown', e => e.stopPropagation());
+    let colour = ev.colour || 'blue';
+    const days = new Set([ev.day]);
+
+    const inp = document.createElement('input'); inp.type = 'text'; inp.value = ev.title || ''; inp.placeholder = 'e.g. School, Methods study, Gym';
+    const row = mk('row'); const s1 = timeSelect(ev.start, 0, ROWS - 1), s2 = timeSelect(ev.end, 1, ROWS);
+    const to = mk('', '–'); to.style.color = 'var(--muted)'; row.append(s1, to, s2);
+    const sw = mk('sw');
+    const mark = el => sw.querySelectorAll('button, label').forEach(x => x.classList.toggle('on', x === el));
+    COLOURS.forEach(c => { const b = document.createElement('button'); b.style.background = PALETTE[c]; b.title = c[0].toUpperCase() + c.slice(1);
+      if (c === colour) b.className = 'on';
+      b.onclick = () => { colour = c; mark(b); }; sw.appendChild(b); });
+    const cl = document.createElement('label'); cl.className = 'custom' + (PALETTE[colour] ? '' : ' on'); cl.title = 'Custom colour';
+    const ci = document.createElement('input'); ci.type = 'color'; ci.value = hexOf(colour);
+    ci.oninput = () => { colour = ci.value; cl.style.background = ci.value; mark(cl); };
+    if (!PALETTE[colour]) cl.style.background = colour;
+    cl.appendChild(ci); sw.appendChild(cl);
+    pop.append(label('Name'), inp, label('Time'), row, label('Colour'), sw);
+
+    if (isNew) {
+      const box = mk('days');
+      DAYS.forEach((d, i) => { const b = document.createElement('button'); b.textContent = d.slice(0, 2); b.title = FULL[i];
+        if (days.has(i)) b.className = 'on';
+        b.onclick = () => { if (days.has(i)) { if (days.size > 1) days.delete(i); } else days.add(i); b.classList.toggle('on', days.has(i)); }; box.appendChild(b); });
+      pop.append(label('Every'), box);
+    }
+
+    const acts = mk('acts');
+    if (!isNew) { const del = document.createElement('button'); del.className = 'danger'; del.textContent = 'Delete';
+      del.onclick = () => { events = events.filter(x => x !== ev); save(); closePop(); render(); }; acts.appendChild(del); }
+    const cancel = document.createElement('button'); cancel.textContent = 'Cancel'; cancel.onclick = () => closePop();
+    const ok = document.createElement('button'); ok.className = 'primary'; ok.textContent = isNew ? 'Add' : 'Save';
+    const commit = () => {
+      let a = +s1.value, b = +s2.value; if (b <= a) b = Math.min(ROWS, a + 1);
+      const title = inp.value.trim() || 'Untitled';
+      if (isNew) { let id = nextId(); days.forEach(d => events.push({ id: id++, day:d, start:a, end:b, title, colour })); }
+      else Object.assign(ev, { start:a, end:b, title, colour });
+      save(); closePop(); render(); fit();
+    };
+    ok.onclick = commit;
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') closePop(); });
+    acts.append(cancel, ok); pop.appendChild(acts);
+    place(pop, anchor);
+    setTimeout(() => inp.focus(), 0);
+  }
+  document.addEventListener('pointerdown', e => { if (pop && !pop.contains(e.target)) closePop(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); });
+
+  if (window.SCHED_T) document.getElementById('upd').textContent = 'Updated ' + window.SCHED_T;
+
+  let lastDay = new Date().toDateString();
+  render(); fit(); drawNow(); window.addEventListener('resize', () => { if (narrow() !== wasN && !pop) render(); fit(); drawNow(); });
+  setInterval(() => { const k = new Date().toDateString(); if (k !== lastDay) { lastDay = k; if (!pop) render(); } else drawNow(); }, 30000);
+});
+</script>
+<!--DATA-->
+<script src="data.js"></script>
+</body></html>

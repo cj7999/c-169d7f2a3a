@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clock</title>
+<style>
+  :root { --bg:#ffffff; --card:#f1f1ef; --edge:#e9e9e7; --ink:#37352f; --muted:#91918e; --faint:#e3e2e0; --line:#ffffff; --accent:#37352f; }
+  @media all {
+    :root { --bg:#191919; --card:#252525; --edge:#2c2c2c; --ink:#ebebea; --muted:#8c8c8a; --faint:#2f2f2f; --line:#191919; --accent:#f5f5f4; }
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { background:var(--bg); color:var(--ink); display:flex; align-items:center; justify-content:center; overflow:hidden;
+         font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+         -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums; }
+  .wrap { width:min(90vw, 120vh); display:flex; flex-direction:column; align-items:center; gap:min(3vw,3.4vh); }
+
+  /* flip clock */
+  .clock { display:flex; align-items:center; gap:min(1.2vw,2vh); }
+  .group { display:flex; gap:min(0.7vw,1.2vh); }
+  .colon { font-size:min(10vw,9.8vh); color:var(--muted); font-weight:300; line-height:1; padding:0 min(0.3vw,.5vh); transform:translateY(-0.4vmin); }
+  .digit { --w:min(16vw,15.5vh); --h:calc(var(--w)*1.32); position:relative; width:var(--w); height:var(--h);
+           perspective:calc(var(--h)*4); font-size:calc(var(--h)*0.68); font-weight:500; line-height:var(--h);
+           text-align:center; letter-spacing:-0.02em; }
+  .half { position:absolute; left:0; width:100%; height:50%; overflow:hidden; background:var(--card); backface-visibility:hidden; }
+  .half span { display:block; height:var(--h); }
+  .top { top:0; border-radius:calc(var(--w)*.12) calc(var(--w)*.12) 0 0; }
+  .bottom { bottom:0; border-radius:0 0 calc(var(--w)*.12) calc(var(--w)*.12); background:var(--edge); }
+  .bottom span { margin-top:calc(var(--h) / -2); }
+  .flip-top { transform-origin:bottom; z-index:2; visibility:hidden; }
+  .flip-bottom { transform-origin:top; z-index:2; transform:rotateX(90deg); visibility:hidden; }
+  .digit.go .flip-top, .digit.go .flip-bottom { visibility:visible; }
+  .digit.go .flip-top { animation:down .25s ease-in forwards; }
+  .digit.go .flip-bottom { animation:up .25s ease-out .25s forwards; }
+  @keyframes down { to { transform:rotateX(-90deg); } }
+  @keyframes up { from { transform:rotateX(90deg); } to { transform:rotateX(0deg); } }
+  .digit::after { content:""; position:absolute; left:0; right:0; top:50%; height:2px; margin-top:-1px; background:var(--line); z-index:3; }
+  .ampm { align-self:flex-end; font-size:min(3vw,3.1vh); color:var(--muted); font-weight:500; letter-spacing:.08em; padding:0 0 min(.8vw,1.4vh) min(.4vw,.7vh); }
+  .date { font-size:min(3.4vw,3.7vh); color:var(--muted); font-weight:400; letter-spacing:.01em; margin-top:calc(min(1.2vw,2vh) * -1); }
+  .date b { color:var(--ink); font-weight:500; }
+
+  /* insights — one stat per row */
+  .stats { width:100%; display:flex; flex-direction:column; border-top:1px solid var(--faint); }
+  .stat { display:grid; grid-template-columns:1fr auto; grid-template-areas:"label big" "cap big" "bar bar";
+          column-gap:min(3vw,4vh); row-gap:min(.7vw,.9vh); align-items:end; padding:min(2.6vw,3.4vh) 0; border-bottom:1px solid var(--faint); }
+  .stat:last-child { border-bottom:0; padding-bottom:0; }
+  .label { grid-area:label; font-size:min(2.6vw,3.3vh); color:var(--ink); font-weight:600; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
+  .cap { grid-area:cap; font-size:min(2.3vw,2.9vh); color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; align-self:start; }
+  .cap b { color:var(--ink); font-weight:500; }
+  .big { grid-area:big; display:flex; align-items:baseline; gap:min(1vw,1.3vh); white-space:nowrap; align-self:center; }
+  .num { font-size:min(7.6vw,9.6vh); font-weight:600; line-height:1; letter-spacing:-0.03em; }
+  .unit { font-size:min(2.3vw,2.9vh); color:var(--muted); }
+  .bar, .segs { grid-area:bar; margin-top:min(.8vw,1vh); }
+  .bar { height:min(1vw,1.25vh); min-height:4px; border-radius:99px; background:var(--faint); overflow:hidden; }
+  .fill { height:100%; border-radius:99px; background:var(--accent); }
+  .segs { display:grid; grid-template-columns:repeat(7, 1fr); gap:min(.7vw,.9vh); }
+  .seg { height:min(1vw,1.25vh); min-height:4px; border-radius:99px; background:var(--faint); }
+  .seg.past { background:var(--muted); opacity:.5; }
+  .seg.today { background:var(--accent); }
+
+  @media (prefers-reduced-motion: reduce) { .digit.go .flip-top, .digit.go .flip-bottom { animation:none; } .flip-top, .flip-bottom { display:none; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="clock" role="timer" aria-label="Current time">
+      <div class="group" id="h"></div>
+      <div class="colon" aria-hidden="true">:</div>
+      <div class="group" id="m"></div>
+      <div class="ampm" id="ampm"></div>
+    </div>
+    <div class="date" id="date"></div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="label">Week <span id="wk"></span></div>
+        <div class="big"><span class="num" id="wLeft"></span><span class="unit" id="wUnit"></span></div>
+        <div class="segs" id="segs" aria-hidden="true"></div>
+        <div class="cap" id="wCap"></div>
+      </div>
+      <div class="stat">
+        <div class="label" id="mLabel"></div>
+        <div class="big"><span class="num" id="mLeft"></span><span class="unit" id="mUnit"></span></div>
+        <div class="bar" aria-hidden="true"><div class="fill" id="mFill"></div></div>
+        <div class="cap" id="mCap"></div>
+      </div>
+      <div class="stat">
+        <div class="label" id="yLabel"></div>
+        <div class="big"><span class="num" id="yLeft"></span><span class="unit" id="yUnit"></span></div>
+        <div class="bar" aria-hidden="true"><div class="fill" id="yFill"></div></div>
+        <div class="cap" id="yCap"></div>
+      </div>
+    </div>
+  </div>
+<script>
+  const $ = id => document.getElementById(id);
+  function makeDigit() {
+    const d = document.createElement('div');
+    d.className = 'digit';
+    d.innerHTML = '<div class="half top"><span></span></div><div class="half bottom"><span></span></div>' +
+                  '<div class="half top flip-top"><span></span></div><div class="half bottom flip-bottom"><span></span></div>';
+    d.dataset.v = '';
+    return d;
+  }
+  function setDigit(d, v) {
+    const old = d.dataset.v;
+    if (old === v) return;
+    const [top, bottom, ftop, fbot] = d.querySelectorAll('span');
+    if (old === '') { top.textContent = bottom.textContent = ftop.textContent = fbot.textContent = v; d.dataset.v = v; return; }
+    top.textContent = v; bottom.textContent = old; ftop.textContent = old; fbot.textContent = v;
+    d.classList.remove('go'); void d.offsetWidth; d.classList.add('go');
+    d.dataset.v = v;
+    clearTimeout(d._t);
+    d._t = setTimeout(() => { top.textContent = bottom.textContent = ftop.textContent = fbot.textContent = v; d.classList.remove('go'); }, 550);
+  }
+  const g = { h:[makeDigit(), makeDigit()], m:[makeDigit(), makeDigit()] };
+  for (const k of Object.keys(g)) g[k].forEach(d => $(k).appendChild(d));
+
+  const DAY = 864e5;
+  const midnight = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const daysBetween = (a, b) => Math.round((midnight(b) - midnight(a)) / DAY);
+  const plural = (n, w) => n === 1 ? w : w + 's';
+  function isoWeek(d) {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return Math.ceil(((t - y0) / DAY + 1) / 7);
+  }
+
+  function drawInsights(now) {
+    const y = now.getFullYear(), mo = now.getMonth(), d = now.getDate();
+
+    // week (Mon–Sun)
+    const wd = now.getDay() || 7;            // 1 = Mon … 7 = Sun
+    const wLeft = 7 - wd;
+    $('wk').textContent = isoWeek(now);
+    $('wLeft').textContent = wLeft;
+    $('wUnit').textContent = plural(wLeft, 'day') + ' left';
+    const segs = $('segs'); segs.innerHTML = '';
+    for (let i = 1; i <= 7; i++) {
+      const s = document.createElement('div');
+      s.className = 'seg' + (i < wd ? ' past' : i === wd ? ' today' : '');
+      segs.appendChild(s);
+    }
+    $('wCap').innerHTML = '<b>' + now.toLocaleDateString('en-AU', { weekday:'long' }) + '</b> · day ' + wd + ' of 7';
+
+    // month
+    const mDays = new Date(y, mo + 1, 0).getDate(), mLeft = mDays - d;
+    $('mLabel').textContent = now.toLocaleDateString('en-AU', { month:'long' });
+    $('mLeft').textContent = mLeft;
+    $('mUnit').textContent = plural(mLeft, 'day') + ' left';
+    $('mFill').style.width = (d / mDays * 100).toFixed(2) + '%';
+    $('mCap').innerHTML = 'Day <b>' + d + '</b> of ' + mDays + ' · ' + Math.round(d / mDays * 100) + '%';
+
+    // year
+    const yDays = daysBetween(new Date(y, 0, 1), new Date(y + 1, 0, 1));
+    const doy = daysBetween(new Date(y, 0, 1), now) + 1, yLeft = yDays - doy;
+    $('yLabel').textContent = y;
+    $('yLeft').textContent = yLeft;
+    $('yUnit').textContent = plural(yLeft, 'day') + ' left';
+    $('yFill').style.width = (doy / yDays * 100).toFixed(2) + '%';
+    $('yCap').innerHTML = 'Day <b>' + doy + '</b> of ' + yDays + ' · ' + Math.round(doy / yDays * 100) + '%';
+  }
+
+  let lastDay = '';
+  function tick() {
+    const now = new Date();
+    let h = now.getHours();
+    const ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    const hh = String(h).padStart(2, '0'), mm = String(now.getMinutes()).padStart(2, '0');
+    setDigit(g.h[0], hh[0]); setDigit(g.h[1], hh[1]); setDigit(g.m[0], mm[0]); setDigit(g.m[1], mm[1]);
+    $('ampm').textContent = ap;
+    const key = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
+    if (key !== lastDay) {
+      lastDay = key;
+      $('date').innerHTML = '<b>' + now.toLocaleDateString('en-AU', { weekday:'long' }) + '</b>  ' +
+        now.toLocaleDateString('en-AU', { day:'numeric', month:'long', year:'numeric' });
+      drawInsights(now);
+    }
+  }
+  tick();
+  setTimeout(() => { tick(); setInterval(tick, 1000); }, 1000 - (Date.now() % 1000));
+</script>
+</body>
+</html>
